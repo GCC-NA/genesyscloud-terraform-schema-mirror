@@ -1,0 +1,23 @@
+name: Update Schema
+on:
+  schedule:
+    - cron: '0 3 * * *'   # nightly
+  workflow_dispatch:
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+      - run: |
+          terraform init
+          terraform providers schema -json > genesyscloud_schema.json
+      - name: Commit schema
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add genesyscloud_schema.json
+          git commit -m "Update schema"
+          git push
