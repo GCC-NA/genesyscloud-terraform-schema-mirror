@@ -1,23 +1,50 @@
-name: Update Schema
+name: Update GenesysCloud Terraform Schema
+
 on:
   schedule:
-    - cron: '0 3 * * *'   # nightly
+    - cron: '0 3 * * *'   # every night
   workflow_dispatch:
+
 jobs:
   update:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: latest
-      - run: |
-          terraform init
-          terraform providers schema -json > genesyscloud_schema.json
-      - name: Commit schema
+
+      - name: Create stub Terraform config
+        run: |
+          mkdir -p tmp
+          cat <<'EOF' > tmp/main.tf
+          terraform {
+            required_providers {
+              genesyscloud = {
+                source = "MyPureCloud/genesyscloud"
+              }
+            }
+          }
+          EOF
+
+      - name: Initialize Terraform provider
+        run: |
+          cd tmp
+          terraform init -no-color
+
+      - name: Export GenesysCloud schema
+        run: |
+          cd tmp
+          terraform providers schema -json > ../genesyscloud_schema.json
+
+      - name: Commit and push schema
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
+          git fetch origin main
           git add genesyscloud_schema.json
-          git commit -m "Update schema"
-          git push
+          git commit -m "Update schema" || echo "No changes to commit"
+          git pull --rebase origin main
+          git push origin HEAD:main
